@@ -1,4 +1,5 @@
 import type { CompetitionCode } from "./competitions";
+import type { RankLookup } from "./db";
 import { findDerby, type Derby } from "./derbies";
 import type { FdMatch } from "./football-data";
 
@@ -70,19 +71,28 @@ export const DEFAULT_CONFIG: ScoringConfig = {
   includeDerbies: true,
 };
 
+/**
+ * 兼容 Map<teamId, position> 的旧写法和新的 RankLookup（按联赛分桶）。
+ * 推荐传 RankLookup（来自 makeRankLookup），更准确。
+ */
+type RankSource = RankLookup | Map<number, number>;
+
+function asLookup(src: RankSource): RankLookup {
+  if (typeof src === "function") return src;
+  return (teamId) => src.get(teamId) ?? null;
+}
+
 export function scoreMatch(
   match: FdMatch,
-  rankByTeam: Map<number, number>,
+  rankSource: RankSource,
   cfg: ScoringConfig = DEFAULT_CONFIG,
 ): ScoredMatch {
-  const homePos = rankByTeam.get(match.homeTeam.id) ?? null;
-  const awayPos = rankByTeam.get(match.awayTeam.id) ?? null;
+  const lookup = asLookup(rankSource);
+  const code = match.competition.code as CompetitionCode;
+  const homePos = lookup(match.homeTeam.id, code);
+  const awayPos = lookup(match.awayTeam.id, code);
 
-  const derby = findDerby(
-    match.competition.code as CompetitionCode,
-    match.homeTeam.name,
-    match.awayTeam.name,
-  );
+  const derby = findDerby(code, match.homeTeam.name, match.awayTeam.name);
 
   const reasons: string[] = [];
   let score = 0;
@@ -112,7 +122,7 @@ export function scoreMatch(
   }
 
   // 联赛权重：欧冠 > 五大联赛
-  if (match.competition.code === "CL") score += 8;
+  if (code === "CL") score += 8;
 
   const meetsTop =
     cfg.topMode === "both" ? homeInTop && awayInTop : homeInTop || awayInTop;

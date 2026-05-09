@@ -56,14 +56,13 @@ async function waitIfDepleted() {
   throttle.available = Number.POSITIVE_INFINITY; // 重置后假设满桶，下次请求会更新
 }
 
-async function fdGet<T>(path: string, revalidate = 300): Promise<T> {
+async function fdGet<T>(path: string): Promise<T> {
   return serialize(async () => {
     await waitIfDepleted();
 
     const url = `${BASE}${path}`;
     let res = await fetch(url, {
       headers: { "X-Auth-Token": token() },
-      next: { revalidate },
     });
     readThrottleHeaders(res.headers);
 
@@ -77,7 +76,6 @@ async function fdGet<T>(path: string, revalidate = 300): Promise<T> {
       await new Promise((r) => setTimeout(r, retryAfter * 1000 + 100));
       res = await fetch(url, {
         headers: { "X-Auth-Token": token() },
-        next: { revalidate },
       });
       readThrottleHeaders(res.headers);
     }
@@ -202,7 +200,6 @@ export async function getStandings(
   }
   const data = await fdGet<FdStandingsResponse>(
     `/competitions/${competition}/standings`,
-    3600,
   );
   standingsCache.set(competition, { at: Date.now(), data });
   return data;
@@ -225,4 +222,50 @@ export function buildTeamRank(
     }
   }
   return rank;
+}
+
+// ---------- Team recent matches (for form 战绩) ----------
+
+interface FdTeamMatchesResponse {
+  matches: FdMatch[];
+}
+
+/**
+ * 拉某球队最近 N 场已结束比赛。football-data.org 该端点付费，但免费档也能用，
+ * 只是会受限。limit 默认 5。
+ */
+export async function getTeamRecentMatches(
+  teamId: number,
+  limit = 5,
+): Promise<FdMatch[]> {
+  const params = new URLSearchParams({
+    status: "FINISHED",
+    limit: String(limit),
+  });
+  const data = await fdGet<FdTeamMatchesResponse>(
+    `/teams/${teamId}/matches?${params}`,
+  );
+  // API 默认按时间降序返回；保险起见再 sort 一次（最近场在最前）
+  return data.matches
+    .slice()
+    .sort((a, b) => b.utcDate.localeCompare(a.utcDate))
+    .slice(0, limit);
+}
+
+/**
+ * 把最近比赛序列转成 W/D/L 字符串（最近的在最前面）。
+ * 只能从该球队视角判断输赢，所以需要传 teamId。
+ */
+export function matchesToForm(teamId: number, matches: FdMatch[]): string {
+  return matches
+    .map((m) => {
+      const isHome = m.homeTeam.id === teamId;
+      const me = isHome ? m.score.fullTime.home : m.score.fullTime.away;
+      const opp = isHome ? m.score.fullTime.away : m.score.fullTime.home;
+      if (me == null || opp == null) return "?";
+      if (me > opp) return "W";
+      if (me < opp) return "L";
+      return "D";
+    })
+    .join("");
 }

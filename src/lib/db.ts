@@ -88,6 +88,12 @@ function migrate(d: Database.Database) {
       value TEXT NOT NULL,
       updated_at INTEGER NOT NULL
     );
+
+    CREATE TABLE IF NOT EXISTS team_form (
+      team_id INTEGER PRIMARY KEY,
+      form TEXT NOT NULL,
+      updated_at INTEGER NOT NULL
+    );
   `);
 }
 
@@ -264,6 +270,10 @@ interface StandingRowDb {
   updated_at: number;
 }
 
+/**
+ * 拍平：teamId -> position。同一球队在多个联赛参赛时只保留最先看到的，
+ * 不再推荐使用，仅保留用于早期调用方兼容。请改用 makeRankLookup。
+ */
 export function getRankByTeamId(): Map<number, number> {
   const rows = db()
     .prepare<unknown[], StandingRowDb>(
@@ -273,6 +283,51 @@ export function getRankByTeamId(): Map<number, number> {
   const m = new Map<number, number>();
   for (const r of rows) if (!m.has(r.team_id)) m.set(r.team_id, r.position);
   return m;
+}
+
+/**
+ * 二维：competitionCode -> (teamId -> position)。
+ * 同一球队在德甲 / 欧冠的排名不同，应该按 match.competition.code 各自取。
+ */
+export function getRanksByCompetition(): Map<
+  CompetitionCode,
+  Map<number, number>
+> {
+  const rows = db()
+    .prepare<unknown[], StandingRowDb>(
+      `SELECT competition_code, team_id, position FROM standings`,
+    )
+    .all();
+  const out = new Map<CompetitionCode, Map<number, number>>();
+  for (const r of rows) {
+    const code = r.competition_code as CompetitionCode;
+    let m = out.get(code);
+    if (!m) {
+      m = new Map<number, number>();
+      out.set(code, m);
+    }
+    m.set(r.team_id, r.position);
+  }
+  return out;
+}
+
+/**
+ * 给 score 用的 lookup：先按 (competitionCode, teamId) 找本联赛的位置；
+ * 找不到（比如欧冠球队中有非五大联赛 / standings 还没拉到）再退回任意联赛。
+ */
+export type RankLookup = (
+  teamId: number,
+  competitionCode: CompetitionCode,
+) => number | null;
+
+export function makeRankLookup(): RankLookup {
+  const byComp = getRanksByCompetition();
+  const flat = getRankByTeamId();
+  return (teamId, code) => {
+    const inComp = byComp.get(code)?.get(teamId);
+    if (inComp != null) return inComp;
+    return flat.get(teamId) ?? null;
+  };
 }
 
 // ---------- push_log ----------
@@ -294,6 +349,31 @@ export function markPushed(job: string, matchId: number, date: string) {
       `INSERT OR IGNORE INTO push_log (job, match_id, date, pushed_at) VALUES (?, ?, ?, ?)`,
     )
     .run(job, matchId, date, Date.now());
+}
+
+// ---------- team_form (缓存近 5 场战绩 W/D/L) ----------
+
+export function getTeamForm(
+  teamId: number,
+  ttlMs: number,
+): string | null {
+  const row = db()
+    .prepare<unknown[], { form: string; updated_at: number }>(
+      `SELECT form, updated_at FROM team_form WHERE team_id = ?`,
+    )
+    .get(teamId);
+  if (!row) return null;
+  if (Date.now() - row.updated_at > ttlMs) return null;
+  return row.form;
+}
+
+export function setTeamForm(teamId: number, form: string) {
+  db()
+    .prepare(
+      `INSERT INTO team_form (team_id, form, updated_at) VALUES (?, ?, ?)
+       ON CONFLICT(team_id) DO UPDATE SET form = excluded.form, updated_at = excluded.updated_at`,
+    )
+    .run(teamId, form, Date.now());
 }
 
 // ---------- meta ----------

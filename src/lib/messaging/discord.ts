@@ -14,9 +14,11 @@ export interface DiscordEmbed {
   url?: string;
   color?: number;
   timestamp?: string;
+  author?: { name: string; url?: string; icon_url?: string };
   footer?: { text: string; icon_url?: string };
   fields?: DiscordEmbedField[];
   thumbnail?: { url: string };
+  image?: { url: string };
 }
 
 export interface DiscordMessage {

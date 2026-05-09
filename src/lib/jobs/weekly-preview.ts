@@ -1,7 +1,7 @@
 import {
   alreadyPushed,
   getMatchesBetween,
-  getRankByTeamId,
+  makeRankLookup,
   markPushed,
   matchRowToFd,
 } from "../db";
@@ -68,7 +68,7 @@ export async function runWeeklyPreview(opts: {
     };
   }
 
-  const rankByTeam = getRankByTeamId();
+  const lookup = makeRankLookup();
   const groups: { dateLabel: string; items: ReturnType<typeof scoreMatch>[] }[] =
     [];
   let totalWorth = 0;
@@ -83,7 +83,7 @@ export async function runWeeklyPreview(opts: {
 
     const rows = getMatchesBetween(fromLocal.toISOString(), toLocal.toISOString());
     const items = rows
-      .map((r) => scoreMatch(matchRowToFd(r), rankByTeam, cfg))
+      .map((r) => scoreMatch(matchRowToFd(r), lookup, cfg))
       .filter((i) => i.worthWatching)
       .sort((a, b) => a.match.utcDate.localeCompare(b.match.utcDate));
 

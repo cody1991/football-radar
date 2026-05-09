@@ -102,40 +102,102 @@ export function morningDigest(date: string, items: ScoredMatch[]): DiscordMessag
 
 // ------------------ Kickoff alert (单场) ------------------
 
-export function kickoffAlert(item: ScoredMatch, minutesUntil: number): DiscordMessage {
+export interface TonightExtra {
+  remainingCount: number;
+  nextKickoffTime: string | null;
+}
+
+export interface KickoffAlertOpts {
+  /** teamId -> form 字符串（W/D/L 序列，最近场在最前），可选 */
+  formByTeam?: Map<number, string | null>;
+  /** 今晚剩余场次提示，可选 */
+  tonight?: TonightExtra;
+}
+
+/** 把 W/D/L 序列染成 emoji，方便一眼读懂状态。最近场在最前。 */
+function colorForm(s: string | null | undefined): string {
+  if (!s) return "—";
+  return s
+    .split("")
+    .map((c) => {
+      if (c === "W") return "🟢";
+      if (c === "D") return "⚪";
+      if (c === "L") return "🔴";
+      return "❔";
+    })
+    .join("");
+}
+
+export function kickoffAlert(
+  item: ScoredMatch,
+  minutesUntil: number,
+  opts: KickoffAlertOpts = {},
+): DiscordMessage {
   const { match, derby, reasons } = item;
   const a = arrangeMatch(item);
-  // embed.title 不渲染 markdown，纯文本：中文 + (#N) + 主/客标识
-  const leftTitle = `${displayTeamName(a.leftTeamName)}${
+
+  const leftLabel = `${displayTeamName(a.leftTeamName)}${
     a.leftRank != null ? ` (#${a.leftRank})` : ""
-  }${a.leftIsHome ? " 主" : " 客"}`;
-  const rightTitle = `${displayTeamName(a.rightTeamName)}${
+  }${a.leftIsHome ? " · 主" : " · 客"}`;
+  const rightLabel = `${displayTeamName(a.rightTeamName)}${
     a.rightRank != null ? ` (#${a.rightRank})` : ""
-  }${a.leftIsHome ? " 客" : " 主"}`;
+  }${a.leftIsHome ? " · 客" : " · 主"}`;
+
+  const leftForm = opts.formByTeam?.get(a.leftTeamId) ?? null;
+  const rightForm = opts.formByTeam?.get(a.rightTeamId) ?? null;
+  const hasAnyForm = leftForm != null || rightForm != null;
+
   const tagBits: string[] = [];
   if (derby) tagBits.push(`🔥 **${derby.name}**`);
   tagBits.push(...reasons.map((r) => `· ${r}`));
+
+  const fields: DiscordEmbedField[] = [
+    {
+      name: "开赛时间",
+      value: fmtTime(match.utcDate),
+      inline: true,
+    },
+    {
+      name: "含金量",
+      value: `${Math.round(item.score)}`,
+      inline: true,
+    },
+  ];
+  if (hasAnyForm) {
+    // 把双方近 5 场放一行 inline=false，宽点好看
+    fields.push({
+      name: "近 5 场（左→最近）",
+      value: `**${displayTeamName(a.leftTeamName)}** ${colorForm(leftForm)}\n**${displayTeamName(
+        a.rightTeamName,
+      )}** ${colorForm(rightForm)}`,
+      inline: false,
+    });
+  }
+  if (opts.tonight && opts.tonight.remainingCount > 0) {
+    fields.push({
+      name: "今晚后续",
+      value:
+        opts.tonight.nextKickoffTime != null
+          ? `还有 ${opts.tonight.remainingCount} 场命中比赛，下一场 ${opts.tonight.nextKickoffTime}`
+          : `还有 ${opts.tonight.remainingCount} 场命中比赛`,
+      inline: false,
+    });
+  }
 
   return {
     content: `⏰ **${minutesUntil} 分钟后开赛** · ${compTag(match.competition.code)}`,
     embeds: [
       {
-        title: `${leftTitle}  v  ${rightTitle}`,
+        // author = 左队（含 logo）；title = "v 右队 ..."；thumbnail = 右队 logo
+        author: a.leftTeamCrest
+          ? { name: leftLabel, icon_url: a.leftTeamCrest }
+          : { name: leftLabel },
+        title: `v  ${rightLabel}`,
         description: tagBits.join("  "),
         color: pickColor(item),
-        thumbnail: a.leftTeamCrest ? { url: a.leftTeamCrest } : undefined,
-        fields: [
-          {
-            name: "开赛时间",
-            value: fmtTime(match.utcDate),
-            inline: true,
-          },
-          {
-            name: "含金量",
-            value: `${Math.round(item.score)}`,
-            inline: true,
-          },
-        ],
+        thumbnail: a.rightTeamCrest ? { url: a.rightTeamCrest } : undefined,
+        fields,
+        footer: { text: `时间 ${tzShort()} (${TZ})` },
       },
     ],
   };
