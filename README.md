@@ -114,23 +114,21 @@ includeDerbies  传统德比（无视排名）也入选
 ## 5. Kickoff Alert 长这样
 
 ```
-⏰ 30 分钟后开赛 · 西甲
+⏰ 30 分钟后开赛 · 西甲 · 第 2/3 场
 [左队 logo] 巴塞罗那 (#1) · 主
 v 皇家马德里 (#2) · 客         [右队 logo]
 🔥 国家德比  · 双方都在前 8
 
-开赛时间   含金量
-03/15 21:00   83
-
-近 5 场（左→最近）
-巴塞罗那 🟢🟢⚪🟢🔴
-皇家马德里 🟢🔴🟢🟢⚪
-
-今晚后续
-还有 2 场命中比赛，下一场 22:00
+开赛时间       含金量
+03/15 21:00    83
 
 时间 GMT+1 (Europe/Amsterdam)
 ```
+
+- **第 2/3 场**：当晚（本地日内）共 3 场命中，这是第 2 场
+- 双方队徽：左队 logo 在 author icon、右队 logo 在 thumbnail
+- 排名按联赛分别取（同球队在德甲 / 欧冠会显示对应联赛的位置）
+- 左右顺序按排名排：排名靠前的在左，所以「主队不一定在左」，主/客有标签
 
 ## 6. 关键文件地图
 
@@ -144,7 +142,7 @@ football-radar/
 │   ├── schedule-once.ts      # GH Actions 入口：一次性 tick
 │   └── push-now.ts           # CLI：手动触发某 job
 └── src/lib/
-    ├── football-data.ts      # API client（含自适应限流 + form 拉取）
+    ├── football-data.ts      # API client（含自适应限流）
     ├── db.ts                 # SQLite schema + 读写封装 + makeRankLookup
     ├── competitions.ts       # 联赛元数据
     ├── derbies.ts            # 德比清单
@@ -153,11 +151,10 @@ football-radar/
     ├── types.ts
     ├── messaging/
     │   ├── discord.ts        # Discord webhook 客户端
-    │   └── format.ts         # 消息模板（kickoff alert 含双队徽 + 战绩）
+    │   └── format.ts         # 消息模板（kickoff alert 含双队徽）
     └── jobs/
         ├── refresh-data.ts   # 拉远程 → SQLite
         ├── kickoff-alerts.ts # 扫即将开赛 → Discord
-        ├── team-form.ts      # 拉近 5 场战绩（4h SQLite 缓存）
         ├── morning-digest.ts # 仅手动
         └── weekly-preview.ts # 仅手动
 ```
@@ -169,10 +166,9 @@ football-data.org 个人免费档：**10 req/min**。
 | 时机 | 调用 |
 |---|---|
 | 距上次 >6h 时的 refresh | 6 standings + 1 matches = **7 次** |
-| kickoff scan 命中 N 场 | **2N 次**（双方 form），但 4h 内有 SQLite 缓存兜底 |
-| 其它（标记已推 / 缓存命中） | 0 |
+| kickoff scan / 推送 | 0（只读 SQLite） |
 
-平均一天约 30–60 次远程调用，远低于限额。
+一天 4 次 refresh ≈ **28 次远程调用**，远低于限额。
 
 ## 8. 已知限制
 

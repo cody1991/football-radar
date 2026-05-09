@@ -102,41 +102,9 @@ export function morningDigest(date: string, items: ScoredMatch[]): DiscordMessag
 
 // ------------------ Kickoff alert (单场) ------------------
 
-export interface TonightExtra {
-  remainingCount: number;
-  nextKickoffTime: string | null;
-}
-
 export interface KickoffAlertOpts {
-  /** teamId -> form 字符串（W/D/L 序列，时间正序：旧 → 新），可选 */
-  formByTeam?: Map<number, string | null>;
-  /** 今晚剩余场次提示，可选 */
-  tonight?: TonightExtra;
   /** 这条是当晚第几场 / 共几场，可选 */
   sequence?: { index: number; total: number };
-}
-
-/** 把 W/D/L 序列染成 emoji，方便一眼读懂状态。时间正序：左旧 → 右新。 */
-function colorForm(s: string | null | undefined): string {
-  if (!s) return "—";
-  return s
-    .split("")
-    .map((c) => {
-      if (c === "W") return "🟢";
-      if (c === "D") return "⚪";
-      if (c === "L") return "🔴";
-      return "❔";
-    })
-    .join("");
-}
-
-/** 看最近 3 场（form 字符串末 3 位）：全胜返回 🔥；全负返回 ❄️；其它返回 null。 */
-function streakSignal(form: string | null | undefined): "🔥" | "❄️" | null {
-  if (!form || form.length < 3) return null;
-  const last3 = form.slice(-3);
-  if (last3 === "WWW") return "🔥";
-  if (last3 === "LLL") return "❄️";
-  return null;
 }
 
 export function kickoffAlert(
@@ -154,23 +122,9 @@ export function kickoffAlert(
     a.rightRank != null ? ` (#${a.rightRank})` : ""
   }${a.leftIsHome ? " · 客" : " · 主"}`;
 
-  const leftForm = opts.formByTeam?.get(a.leftTeamId) ?? null;
-  const rightForm = opts.formByTeam?.get(a.rightTeamId) ?? null;
-  const hasAnyForm = leftForm != null || rightForm != null;
-  const leftSig = streakSignal(leftForm);
-  const rightSig = streakSignal(rightForm);
-
   const tagBits: string[] = [];
   if (derby) tagBits.push(`🔥 **${derby.name}**`);
   tagBits.push(...reasons.map((r) => `· ${r}`));
-  if (leftSig === "🔥")
-    tagBits.push(`· 🔥 ${displayTeamName(a.leftTeamName)}三连胜`);
-  if (rightSig === "🔥")
-    tagBits.push(`· 🔥 ${displayTeamName(a.rightTeamName)}三连胜`);
-  if (leftSig === "❄️")
-    tagBits.push(`· ❄️ ${displayTeamName(a.leftTeamName)}三连败`);
-  if (rightSig === "❄️")
-    tagBits.push(`· ❄️ ${displayTeamName(a.rightTeamName)}三连败`);
 
   const fields: DiscordEmbedField[] = [
     {
@@ -184,25 +138,6 @@ export function kickoffAlert(
       inline: true,
     },
   ];
-  if (hasAnyForm) {
-    fields.push({
-      name: "近 5 场（旧 → 最近 →）",
-      value: `**${displayTeamName(a.leftTeamName)}** ${colorForm(leftForm)}\n**${displayTeamName(
-        a.rightTeamName,
-      )}** ${colorForm(rightForm)}`,
-      inline: false,
-    });
-  }
-  if (opts.tonight && opts.tonight.remainingCount > 0) {
-    fields.push({
-      name: "今晚后续",
-      value:
-        opts.tonight.nextKickoffTime != null
-          ? `还有 ${opts.tonight.remainingCount} 场命中比赛，下一场 ${opts.tonight.nextKickoffTime}`
-          : `还有 ${opts.tonight.remainingCount} 场命中比赛`,
-      inline: false,
-    });
-  }
 
   const seqBit = opts.sequence
     ? ` · 第 ${opts.sequence.index}/${opts.sequence.total} 场`

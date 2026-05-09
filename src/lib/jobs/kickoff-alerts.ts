@@ -6,9 +6,8 @@ import {
   matchRowToFd,
 } from "../db";
 import { sendDiscord } from "../messaging/discord";
-import { kickoffAlert, type TonightExtra } from "../messaging/format";
+import { kickoffAlert } from "../messaging/format";
 import { DEFAULT_CONFIG, scoreMatch, type ScoringConfig } from "../score";
-import { fetchTeamForm } from "./team-form";
 
 const TZ = process.env.TZ || "Europe/Berlin";
 
@@ -30,15 +29,6 @@ function localDayUtcWindow(iso: string): { from: string; to: string } {
     from: new Date(`${today}T00:00:00`).toISOString(),
     to: new Date(`${tomorrow}T00:00:00`).toISOString(),
   };
-}
-
-function fmtTimeShort(iso: string): string {
-  return new Intl.DateTimeFormat("zh-CN", {
-    hour: "2-digit",
-    minute: "2-digit",
-    hour12: false,
-    timeZone: TZ,
-  }).format(new Date(iso));
 }
 
 export interface KickoffAlertResult {
@@ -86,19 +76,7 @@ export async function runKickoffAlerts(opts: {
       Math.round((new Date(it.match.utcDate).getTime() - now) / 60000),
     );
     try {
-      // 拉双方近 5 场战绩（4h SQLite 缓存兜底；按 teamId 存以便 format 端按 left/right 取）
-      const homeId = it.match.homeTeam.id;
-      const awayId = it.match.awayTeam.id;
-      const [homeForm, awayForm] = await Promise.all([
-        fetchTeamForm(homeId),
-        fetchTeamForm(awayId),
-      ]);
-      const formByTeam = new Map<number, string | null>([
-        [homeId, homeForm],
-        [awayId, awayForm],
-      ]);
-
-      // 「今晚还有 N 场」+「这是第几场」：算同一本地日内全部 worth 比赛
+      // 「第 N/M 场」：算同一本地日内全部 worth 比赛（仅未开始的）
       const dayWindow = localDayUtcWindow(it.match.utcDate);
       const dayRows = getMatchesBetween(dayWindow.from, dayWindow.to);
       const dayItems = dayRows
@@ -107,20 +85,12 @@ export async function runKickoffAlerts(opts: {
         .filter((i) => i.worthWatching)
         .sort((a, b) => a.match.utcDate.localeCompare(b.match.utcDate));
       const myIndex = dayItems.findIndex((x) => x.match.id === it.match.id);
-      const remaining = dayItems.slice(myIndex + 1);
-      const tonight: TonightExtra = {
-        remainingCount: remaining.length,
-        nextKickoffTime:
-          remaining.length > 0 ? fmtTimeShort(remaining[0].match.utcDate) : null,
-      };
       const sequence =
         myIndex >= 0
           ? { index: myIndex + 1, total: dayItems.length }
           : undefined;
 
-      await sendDiscord(
-        kickoffAlert(it, minutesUntil, { formByTeam, tonight, sequence }),
-      );
+      await sendDiscord(kickoffAlert(it, minutesUntil, { sequence }));
       markPushed("kickoff", it.match.id, k);
       pushed++;
     } catch (e) {

@@ -88,13 +88,9 @@ function migrate(d: Database.Database) {
       value TEXT NOT NULL,
       updated_at INTEGER NOT NULL
     );
-
-    CREATE TABLE IF NOT EXISTS team_form (
-      team_id INTEGER PRIMARY KEY,
-      form TEXT NOT NULL,
-      updated_at INTEGER NOT NULL
-    );
   `);
+  // 历史遗留的 team_form 表清理：不再使用
+  d.exec(`DROP TABLE IF EXISTS team_form;`);
 }
 
 // ---------- matches ----------
@@ -349,31 +345,6 @@ export function markPushed(job: string, matchId: number, date: string) {
       `INSERT OR IGNORE INTO push_log (job, match_id, date, pushed_at) VALUES (?, ?, ?, ?)`,
     )
     .run(job, matchId, date, Date.now());
-}
-
-// ---------- team_form (缓存近 5 场战绩 W/D/L) ----------
-
-export function getTeamForm(
-  teamId: number,
-  ttlMs: number,
-): string | null {
-  const row = db()
-    .prepare<unknown[], { form: string; updated_at: number }>(
-      `SELECT form, updated_at FROM team_form WHERE team_id = ?`,
-    )
-    .get(teamId);
-  if (!row) return null;
-  if (Date.now() - row.updated_at > ttlMs) return null;
-  return row.form;
-}
-
-export function setTeamForm(teamId: number, form: string) {
-  db()
-    .prepare(
-      `INSERT INTO team_form (team_id, form, updated_at) VALUES (?, ?, ?)
-       ON CONFLICT(team_id) DO UPDATE SET form = excluded.form, updated_at = excluded.updated_at`,
-    )
-    .run(teamId, form, Date.now());
 }
 
 // ---------- meta ----------
