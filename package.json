@@ -8,6 +8,7 @@
     "start": "next start",
     "lint": "eslint",
     "scheduler": "node --env-file-if-exists=.env.local --import tsx scripts/scheduler.ts",
+    "schedule:once": "node --env-file-if-exists=.env.local --import tsx scripts/schedule-once.ts",
     "push:now": "node --env-file-if-exists=.env.local --import tsx scripts/push-now.ts"
   },
   "dependencies": {

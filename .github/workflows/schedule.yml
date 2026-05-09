@@ -1,0 +1,62 @@
+name: schedule
+
+# 每 10 分钟跑一次 schedule-once.ts，由它内部决定要执行哪些 job：
+#   - 距上次 refresh > 6h:  refresh
+#   - 当地时间 08:00-08:09:  morning digest
+#   - 周六 08:00-08:09:      weekly preview
+#   - 永远:                  kickoff scan
+#
+# 跑完会把 data/ 下的 SQLite commit 回 main 分支当持久化层。
+# 用 [skip ci] 防止触发自身（schedule 触发本身不会被 push 触发，但给个 belt-and-suspenders）。
+
+on:
+  schedule:
+    - cron: "*/10 * * * *"
+  workflow_dispatch: {} # 也能在 GitHub UI 手动触发一次
+
+permissions:
+  contents: write # 需要 push data/ 回 repo
+
+# 同时只允许一次跑，避免 git push 冲突
+concurrency:
+  group: schedule
+  cancel-in-progress: false
+
+jobs:
+  tick:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # default GITHUB_TOKEN 已经够 push 回同 repo
+          persist-credentials: true
+          fetch-depth: 1
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+
+      - run: npm ci
+
+      - name: Run schedule-once
+        env:
+          FOOTBALL_DATA_TOKEN: ${{ secrets.FOOTBALL_DATA_TOKEN }}
+          DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
+          TZ: ${{ vars.TZ || 'Europe/Amsterdam' }}
+        run: npm run schedule:once
+
+      - name: Commit SQLite back to repo
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add -f data/
+          if git diff --cached --quiet; then
+            echo "no data change, skip commit"
+          else
+            git commit -m "data: tick $(date -u +%FT%TZ) [skip ci]"
+            # 防偶发 race：rebase 一下再 push
+            git pull --rebase origin "${GITHUB_REF_NAME}" || true
+            git push origin HEAD:"${GITHUB_REF_NAME}"
+          fi

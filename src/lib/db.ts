@@ -24,6 +24,21 @@ export function db(): Database.Database {
   return handle;
 }
 
+/**
+ * 退出前调用：把 WAL 合并回主 db 文件并关闭句柄。
+ * 这样 git commit data/ 时只需要追踪 .db 一个文件，不会带 .db-wal / .db-shm。
+ */
+export function closeDb() {
+  if (!_db) return;
+  try {
+    _db.pragma("wal_checkpoint(TRUNCATE)");
+  } catch (e) {
+    console.warn("[db] checkpoint failed:", e);
+  }
+  _db.close();
+  _db = null;
+}
+
 function migrate(d: Database.Database) {
   d.exec(`
     CREATE TABLE IF NOT EXISTS matches (

@@ -64,7 +64,78 @@ npm run push:now -- kickoff         # 立刻扫一次即将开赛
 npm run push:now -- all             # refresh + morning(force) + weekly(force) 一条龙自检
 ```
 
-## 3. Docker 部署（推荐生产用法）
+## 3. GitHub Actions 部署（零服务器、全免费）
+
+不想自己开服务器？把 repo 推到 GitHub，让 GitHub Actions 当 cron 即可。
+代价：**没有 web 看板**（Actions 只跑短任务，没有常驻进程），主战场是 Discord 推送。
+
+### 3.1 一次性配置
+
+1. **新建 GitHub repo**（公开 repo Actions 完全免费；私有也行，月 2000 分钟够）
+2. **本地推上去**
+   ```bash
+   git init
+   git add .
+   git commit -m "init football-radar"
+   git branch -M main
+   git remote add origin git@github.com:<你的用户名>/<repo>.git
+   git push -u origin main
+   ```
+3. **配置 Repository Secrets**
+   - 在 GitHub repo → Settings → Secrets and variables → Actions → 新建：
+     - `FOOTBALL_DATA_TOKEN` → 你的 football-data.org token
+     - `DISCORD_WEBHOOK_URL` → 你的 Discord webhook URL
+4. **可选：配置 Repository Variable 改时区**
+   - Settings → Secrets and variables → Actions → Variables tab
+   - 新建 `TZ` = `Europe/Amsterdam`（不设默认 Amsterdam）
+5. **手动触发一次确认能跑**
+   - Actions tab → schedule workflow → Run workflow
+
+之后什么都不用管：
+
+- 每 10 分钟 GitHub 自动跑一次 `schedule-once.ts`
+- 内部根据时间决定执行 refresh / morning / weekly / kickoff
+- SQLite 会被自动 commit 回 main 分支当持久化
+
+### 3.2 工作流原理
+
+```
+GitHub Actions cron (*/10 min)
+         ↓
+checkout main 分支（带历史 SQLite）
+         ↓
+npm ci → npm run schedule:once
+         ↓ (script 内部判断时间)
+执行对应 job（refresh / morning / kickoff / weekly）
+         ↓
+git commit data/ + push 回 main（带 [skip ci]）
+```
+
+### 3.3 注意事项 / Trade-off
+
+- **kickoff 提醒精度** ±10–15 分钟：GH Actions cron 触发抖动很正常。
+  代码里把 `lookaheadMin` 调到了 60，确保即使 GH 晚 15 分钟你也能赶在开赛前收到。
+- **Repo 会有很多自动 commit**：每天约 144 次 tick，每次有数据变更就提交一次。如果嫌烦：
+  - 用一个独立的 `data` 分支隔离（改 workflow 的 push target）
+  - 或者每月 squash 一次（手动 `git rebase -i` 或脚本）
+- **GitHub Actions 配额**（私有 repo）：每次 tick ~30 秒，144 次/天 ≈ 72 分钟/天 ≈ 2160 分钟/月。
+  免费档 2000 分钟/月**会刚好超**。解决方法：把 repo 改成 public（Actions unlimited），或把 cron 改为 `*/15 * * * *`（约 1440 分钟/月）。
+- **没有 web 看板**：想看的话本地 `npm install && npm run dev` 即可（你本地随时拉最新数据）。
+
+### 3.4 常见操作
+
+```bash
+# 看最近一次 tick 跑了什么
+# GitHub repo → Actions → schedule → 最新一次 run
+
+# 在 GitHub UI 手动跑一次（比如想现在就推一条早报）
+# repo → Actions → schedule → Run workflow → 选 main → Run
+
+# 临时关闭推送（出差不想被吵）
+# repo → Actions → schedule → ... → Disable workflow
+```
+
+## 4. Docker 部署（自己有服务器时推荐）
 
 服务器上把代码 clone 下来，写好 `.env.local`，然后：
 

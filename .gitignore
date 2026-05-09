@@ -32,6 +32,11 @@ yarn-error.log*
 
 # env files (can opt-in for committing if needed)
 .env*
+!.env.example
+
+# SQLite WAL/SHM 临时文件不进 git；主 db 进 git 当持久化（GH Actions 部署需要）
+data/*.db-shm
+data/*.db-wal
 
 # vercel
 .vercel
