@@ -12,8 +12,8 @@ name: schedule
 on:
   schedule:
     # GitHub 官方文档：避免整点 cron（每小时高峰会被严重延迟，private repo 尤甚）
-    # 错开到 :03/:13/:23/:33/:43/:53，仍然 10 分钟一次
-    - cron: "3,13,23,33,43,53 * * * *"
+    # 错开到 :07/:17/:27/:37/:47/:57，仍然 10 分钟一次
+    - cron: "7,17,27,37,47,57 * * * *"
   workflow_dispatch: {} # 也能在 GitHub UI 手动触发一次
 
 # 提前切 Node 24，避免 6 月 2 号 GH 自动切换前的 deprecation warning
