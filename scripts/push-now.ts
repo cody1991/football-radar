@@ -37,7 +37,13 @@ async function main() {
       break;
     }
     case "kickoff": {
-      const r = await runKickoffAlerts({ lookaheadMin: 30 });
+      if (force) {
+        // 临时清掉 kickoff push_log，让本次扫描全部重推
+        const { db } = await import("../src/lib/db");
+        const n = db().prepare(`DELETE FROM push_log WHERE job = 'kickoff'`).run().changes;
+        console.log(`(--force) cleared ${n} kickoff push_log entries`);
+      }
+      const r = await runKickoffAlerts({ lookaheadMin: 60 });
       console.log("kickoff:", r);
       break;
     }
