@@ -56,17 +56,17 @@ export function arrangeMatch(item: ScoredMatch): ArrangedMatch {
 }
 
 export interface ScoringConfig {
-  /** 双方都至少要在这个排名内（"地板"，宽松条件，必须满足） */
+  /** 入选方式 A：双方都至少在这个排名内（强强对话） */
   bothInTop: number;
-  /** 至少一方要在这个排名内（"天花板"，严格条件）。设为 null 关闭这层过滤 */
-  eitherInTop: number | null;
-  /** 是否把传统德比当 fallback 入选条件（无视排名）。false 时德比也必须满足上述排名条件 */
+  /** 入选方式 B：至少一方在这个排名内（豪门坐镇，对手不挑）。设 null 关闭 */
+  superInTop: number | null;
+  /** 是否把传统德比当 fallback 入选（无视排名） */
   includeDerbies: boolean;
 }
 
 export const DEFAULT_CONFIG: ScoringConfig = {
   bothInTop: 8,
-  eitherInTop: 6,
+  superInTop: 3,
   includeDerbies: false,
 };
 
@@ -103,32 +103,20 @@ export function scoreMatch(
   score += posScore(awayPos);
 
   const inN = (p: number | null, n: number) => p != null && p <= n;
-  const homeInBoth = inN(homePos, cfg.bothInTop);
-  const awayInBoth = inN(awayPos, cfg.bothInTop);
-  const eitherInTop =
-    cfg.eitherInTop != null &&
-    (inN(homePos, cfg.eitherInTop) || inN(awayPos, cfg.eitherInTop));
-  const bothInEither =
-    cfg.eitherInTop != null &&
-    inN(homePos, cfg.eitherInTop) &&
-    inN(awayPos, cfg.eitherInTop);
+  const ruleBoth =
+    inN(homePos, cfg.bothInTop) && inN(awayPos, cfg.bothInTop);
+  const ruleSuper =
+    cfg.superInTop != null &&
+    (inN(homePos, cfg.superInTop) || inN(awayPos, cfg.superInTop));
+  const meetsRank = ruleBoth || ruleSuper;
 
-  const meetsRank =
-    homeInBoth && awayInBoth && (cfg.eitherInTop == null || eitherInTop);
-
-  if (meetsRank) {
-    if (bothInEither) {
-      score += 40;
-      reasons.push(`双方 Top ${cfg.eitherInTop}`);
-    } else if (cfg.eitherInTop != null) {
-      score += 25;
-      reasons.push(
-        `双方 Top ${cfg.bothInTop}，一方 Top ${cfg.eitherInTop}`,
-      );
-    } else {
-      score += 25;
-      reasons.push(`双方 Top ${cfg.bothInTop}`);
-    }
+  if (ruleBoth) {
+    score += 30;
+    reasons.push(`双方 Top ${cfg.bothInTop}`);
+  }
+  if (ruleSuper) {
+    score += 25;
+    reasons.push(`豪门坐镇 (Top ${cfg.superInTop})`);
   }
 
   // 德比仅作为 fallback 入选（当 includeDerbies=true 时无视排名）

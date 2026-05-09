@@ -94,12 +94,12 @@ Repo 一推，cron 自动跑，没什么需要长期维护。
 `src/lib/score.ts` 里的 `DEFAULT_CONFIG`：
 
 ```
-bothInTop: 8        双方都至少要在 Top 8（地板）
-eitherInTop: 6      至少一方还要在 Top 6（天花板）
-includeDerbies: false   德比不再无视排名，也得满足上面两条
+bothInTop: 8        入选方式 A：双方都在 Top 8（强强对话）
+superInTop: 3       入选方式 B：至少一方在 Top 3（豪门坐镇，对手不挑）
+includeDerbies: false
 ```
 
-入选 = `双方 Top 8` AND `(任一方 Top 6)`。
+入选 = `双方 Top 8` **OR** `任一方 Top 3`（OR 关系，满足任一即推）。
 
 打分公式（仅 score 字段用，不影响是否入选）：
 
@@ -107,7 +107,8 @@ includeDerbies: false   德比不再无视排名，也得满足上面两条
 总分 =
   (21 - 主队排名)                # 第 1 名 20 分，第 20 名 1 分，未上榜 0
 + (21 - 客队排名)
-+ (双方都在 Top 6 ? 40 : 满足入选条件 ? 25 : 0)
++ (满足 A：双方 Top 8 ? 30 : 0)
++ (满足 B：一方 Top 3 ? 25 : 0)
 + (传统德比 ? 25 : 0)
 + (欧冠 ? 8 : 0)
 ```
