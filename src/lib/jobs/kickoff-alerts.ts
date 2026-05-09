@@ -69,8 +69,10 @@ export async function runKickoffAlerts(opts: {
     .map((r) => scoreMatch(matchRowToFd(r), lookup, cfg))
     .filter((i) => i.worthWatching);
 
-  // 临开赛 ping 阈值：≤ 这么多分钟就额外发一条 @here 简短提醒
-  const IMMINENT_MIN = 5;
+  // 临开赛 ping 阈值：≤ 这么多分钟就额外发一条 @here 简短提醒。
+  // 跟 cron 间隔（10min）对齐，保证每场比赛在窗口内必有一次 tick 落进去。
+  // 设小于 cron 间隔会有概率被错过（cron 节奏 :00/:10/:20，小于 10min 窗口可能完全跳过）。
+  const IMMINENT_MIN = 10;
 
   let pushed = 0;
   let skipped = 0;
