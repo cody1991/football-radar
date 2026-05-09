@@ -1,5 +1,5 @@
 import { COMPETITIONS, type CompetitionCode } from "../competitions";
-import type { ScoredMatch } from "../score";
+import { arrangeMatch, type ScoredMatch } from "../score";
 import { displayTeamName } from "../team-names-zh";
 import {
   COLOR,
@@ -60,15 +60,17 @@ function pickColor(item: ScoredMatch): number {
   return COLOR.accent;
 }
 
-/** 一行紧凑表示，用于早报/周报里的列表 */
+/** 一行紧凑表示，用于早报/周报里的列表。两队按排名排序，靠前的在左。 */
 function lineFor(item: ScoredMatch, opts: { withDate?: boolean } = {}): string {
-  const { match, rank, derby } = item;
+  const { match, derby } = item;
+  const a = arrangeMatch(item);
   const time = opts.withDate ? fmtTime(match.utcDate) : fmtTimeShort(match.utcDate);
-  const home = teamWithRank(match.homeTeam.name, rank.home);
-  const away = teamWithRank(match.awayTeam.name, rank.away);
+  const left = teamWithRank(a.leftTeamName, a.leftRank);
+  const right = teamWithRank(a.rightTeamName, a.rightRank);
   const tags = [`[${compTag(match.competition.code)}]`];
   if (derby) tags.push(`🔥${derby.name}`);
-  return `\`${time}\` ${tags.join(" ")} ${home} vs ${away}`;
+  // 用 ` v ` 而不是 ` vs ` 来弱化主客（已被打乱），左侧不一定是主场
+  return `\`${time}\` ${tags.join(" ")} ${left} v ${right}`;
 }
 
 // ------------------ Morning digest ------------------
@@ -101,14 +103,15 @@ export function morningDigest(date: string, items: ScoredMatch[]): DiscordMessag
 // ------------------ Kickoff alert (单场) ------------------
 
 export function kickoffAlert(item: ScoredMatch, minutesUntil: number): DiscordMessage {
-  const { match, rank, derby, reasons } = item;
-  // embed.title 不渲染 markdown，所以这里给纯文本形式（中文 + (#N)）
-  const homeTitle = `${displayTeamName(match.homeTeam.name)}${
-    rank.home != null ? ` (#${rank.home})` : ""
-  }`;
-  const awayTitle = `${displayTeamName(match.awayTeam.name)}${
-    rank.away != null ? ` (#${rank.away})` : ""
-  }`;
+  const { match, derby, reasons } = item;
+  const a = arrangeMatch(item);
+  // embed.title 不渲染 markdown，纯文本：中文 + (#N) + 主/客标识
+  const leftTitle = `${displayTeamName(a.leftTeamName)}${
+    a.leftRank != null ? ` (#${a.leftRank})` : ""
+  }${a.leftIsHome ? " 主" : " 客"}`;
+  const rightTitle = `${displayTeamName(a.rightTeamName)}${
+    a.rightRank != null ? ` (#${a.rightRank})` : ""
+  }${a.leftIsHome ? " 客" : " 主"}`;
   const tagBits: string[] = [];
   if (derby) tagBits.push(`🔥 **${derby.name}**`);
   tagBits.push(...reasons.map((r) => `· ${r}`));
@@ -117,10 +120,10 @@ export function kickoffAlert(item: ScoredMatch, minutesUntil: number): DiscordMe
     content: `⏰ **${minutesUntil} 分钟后开赛** · ${compTag(match.competition.code)}`,
     embeds: [
       {
-        title: `${homeTitle}  vs  ${awayTitle}`,
+        title: `${leftTitle}  v  ${rightTitle}`,
         description: tagBits.join("  "),
         color: pickColor(item),
-        thumbnail: match.homeTeam.crest ? { url: match.homeTeam.crest } : undefined,
+        thumbnail: a.leftTeamCrest ? { url: a.leftTeamCrest } : undefined,
         fields: [
           {
             name: "开赛时间",

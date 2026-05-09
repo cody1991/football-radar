@@ -1,6 +1,6 @@
 import Image from "next/image";
 import { COMPETITIONS, type CompetitionCode } from "@/lib/competitions";
-import type { ScoredMatch } from "@/lib/score";
+import { arrangeMatch, type ScoredMatch } from "@/lib/score";
 import { displayTeamName } from "@/lib/team-names-zh";
 import { cn } from "@/lib/utils";
 
@@ -62,12 +62,23 @@ function TeamLogo({ src, alt }: { src?: string; alt: string }) {
   );
 }
 
+function HomeAwayDot({ home }: { home: boolean }) {
+  return (
+    <span
+      className="text-[10px] text-muted/70"
+      title={home ? "主场" : "客场"}
+    >
+      {home ? "主" : "客"}
+    </span>
+  );
+}
+
 export function MatchCard({ item }: { item: ScoredMatch }) {
-  const { match, rank, derby, score, reasons, worthWatching } = item;
+  const { match, derby, score, reasons, worthWatching } = item;
   const comp = COMPETITIONS[match.competition.code as CompetitionCode];
   const finished = match.status === "FINISHED";
-  const live =
-    match.status === "IN_PLAY" || match.status === "PAUSED";
+  const live = match.status === "IN_PLAY" || match.status === "PAUSED";
+  const a = arrangeMatch(item);
 
   return (
     <div
@@ -115,32 +126,32 @@ export function MatchCard({ item }: { item: ScoredMatch }) {
         </div>
       </div>
 
-      {/* 主队 / 客队 */}
+      {/* 双方：排名靠前的在左 */}
       <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-2">
         <div className="flex items-center gap-2 justify-self-start min-w-0">
-          <TeamLogo src={match.homeTeam.crest} alt={match.homeTeam.name} />
+          <TeamLogo src={a.leftTeamCrest ?? undefined} alt={a.leftTeamName} />
           <div className="flex items-baseline gap-1 truncate">
-            <span className="truncate font-medium" title={match.homeTeam.name}>
-              {displayTeamName(match.homeTeam.name)}
+            <span className="truncate font-medium" title={a.leftTeamName}>
+              {displayTeamName(a.leftTeamName)}
             </span>
-            <RankSuffix pos={rank.home} />
+            <RankSuffix pos={a.leftRank} />
+            <HomeAwayDot home={a.leftIsHome} />
           </div>
         </div>
         <div className="px-2 text-center font-mono text-sm text-muted">
           {finished || live
-            ? `${match.score.fullTime.home ?? 0} : ${
-                match.score.fullTime.away ?? 0
-              }`
-            : "vs"}
+            ? `${a.leftScore ?? 0} : ${a.rightScore ?? 0}`
+            : "v"}
         </div>
         <div className="flex items-center gap-2 justify-self-end min-w-0">
           <div className="flex items-baseline gap-1 truncate justify-end">
-            <RankSuffix pos={rank.away} side="right" />
-            <span className="truncate font-medium" title={match.awayTeam.name}>
-              {displayTeamName(match.awayTeam.name)}
+            <HomeAwayDot home={!a.leftIsHome} />
+            <RankSuffix pos={a.rightRank} side="right" />
+            <span className="truncate font-medium" title={a.rightTeamName}>
+              {displayTeamName(a.rightTeamName)}
             </span>
           </div>
-          <TeamLogo src={match.awayTeam.crest} alt={match.awayTeam.name} />
+          <TeamLogo src={a.rightTeamCrest ?? undefined} alt={a.rightTeamName} />
         </div>
       </div>
 

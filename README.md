@@ -1,6 +1,6 @@
 # Football Radar
 
-按球队排名 + 传统德比筛选"值得看"的足球比赛，每天早 8 点 / 开赛前 30 分钟 / 周末把重头戏推到 Discord。
+按球队排名 + 传统德比筛选"值得看"的足球比赛，开赛前自动推到 Discord。
 
 数据源：[football-data.org](https://www.football-data.org/) v4 API（个人免费档）。
 本地存储：SQLite（`./data/football-radar.db`）。
@@ -9,9 +9,7 @@
 ```
 ┌────────── scheduler (node-cron) ──────────┐
 │ 07:30 daily   refresh: 拉 7 天赛程 + 排名│
-│ 08:00 daily   今日早报 → Discord          │
 │ */10 min      开赛前 30 min 提醒 → Discord│
-│ 周六 08:05    周末预告 → Discord           │
 └────┬──────────────────────────────────────┘
      ↓ 写
 ┌──────────── SQLite (data/) ────────────┐
@@ -105,8 +103,8 @@ GitHub Actions cron (*/10 min)
 checkout main 分支（带历史 SQLite）
          ↓
 npm ci → npm run schedule:once
-         ↓ (script 内部判断时间)
-执行对应 job（refresh / morning / kickoff / weekly）
+         ↓ (script 内部判断要不要 refresh)
+执行 job：永远 kickoff scan + 距上次 >6h 才 refresh
          ↓
 git commit data/ + push 回 main（带 [skip ci]）
 ```
