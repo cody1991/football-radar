@@ -98,31 +98,28 @@ export async function runKickoffAlerts(opts: {
         [awayId, awayForm],
       ]);
 
-      // 「今晚还有 N 场」：当地日期内的剩余 worth match（不含这场）
+      // 「今晚还有 N 场」+「这是第几场」：算同一本地日内全部 worth 比赛
       const dayWindow = localDayUtcWindow(it.match.utcDate);
       const dayRows = getMatchesBetween(dayWindow.from, dayWindow.to);
       const dayItems = dayRows
-        .filter(
-          (r) => r.status === "SCHEDULED" || r.status === "TIMED",
-        )
+        .filter((r) => r.status === "SCHEDULED" || r.status === "TIMED")
         .map((r) => scoreMatch(matchRowToFd(r), lookup, cfg))
-        .filter((i) => i.worthWatching);
-      const remaining = dayItems
-        .filter(
-          (x) =>
-            x.match.id !== it.match.id &&
-            new Date(x.match.utcDate).getTime() >
-              new Date(it.match.utcDate).getTime(),
-        )
+        .filter((i) => i.worthWatching)
         .sort((a, b) => a.match.utcDate.localeCompare(b.match.utcDate));
+      const myIndex = dayItems.findIndex((x) => x.match.id === it.match.id);
+      const remaining = dayItems.slice(myIndex + 1);
       const tonight: TonightExtra = {
         remainingCount: remaining.length,
         nextKickoffTime:
           remaining.length > 0 ? fmtTimeShort(remaining[0].match.utcDate) : null,
       };
+      const sequence =
+        myIndex >= 0
+          ? { index: myIndex + 1, total: dayItems.length }
+          : undefined;
 
       await sendDiscord(
-        kickoffAlert(it, minutesUntil, { formByTeam, tonight }),
+        kickoffAlert(it, minutesUntil, { formByTeam, tonight, sequence }),
       );
       markPushed("kickoff", it.match.id, k);
       pushed++;

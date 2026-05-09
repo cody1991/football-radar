@@ -253,11 +253,14 @@ export async function getTeamRecentMatches(
 }
 
 /**
- * 把最近比赛序列转成 W/D/L 字符串（最近的在最前面）。
+ * 把最近比赛序列转成 W/D/L 字符串。
+ * 时间正序：最早的在最左，最近的在最右（更符合阅读习惯）。
  * 只能从该球队视角判断输赢，所以需要传 teamId。
  */
 export function matchesToForm(teamId: number, matches: FdMatch[]): string {
   return matches
+    .slice()
+    .sort((a, b) => a.utcDate.localeCompare(b.utcDate)) // 旧 → 新
     .map((m) => {
       const isHome = m.homeTeam.id === teamId;
       const me = isHome ? m.score.fullTime.home : m.score.fullTime.away;
