@@ -5,7 +5,8 @@ export type CompetitionCode =
   | "BL1"
   | "FL1"
   | "CL"
-  | "EL";
+  | "EL"
+  | "WC";
 
 export interface CompetitionMeta {
   code: CompetitionCode;
@@ -66,6 +67,14 @@ export const COMPETITIONS: Record<CompetitionCode, CompetitionMeta> = {
     emoji: "🌟",
     available: false,
     note: "football-data.org 免费档不含欧联，升级 Tier One 后开放",
+  },
+  WC: {
+    code: "WC",
+    name: "FIFA World Cup",
+    shortName: "世界杯",
+    emoji: "🏆",
+    available: true,
+    note: "无联赛排名，scoreMatch 对 WC 走 always-推 路线，单独 webhook 频道",
   },
 };
 

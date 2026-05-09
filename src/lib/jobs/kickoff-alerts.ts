@@ -96,7 +96,10 @@ export async function runKickoffAlerts(opts: {
           ? { index: myIndex + 1, total: dayItems.length }
           : undefined;
 
-      await sendDiscord(kickoffAlert(it, minutesUntil, { sequence }));
+      await sendDiscord(
+        kickoffAlert(it, minutesUntil, { sequence }),
+        { competitionCode: it.match.competition.code },
+      );
       if (!dryRun) markPushed("kickoff", it.match.id, k);
       pushed++;
     } catch (e) {

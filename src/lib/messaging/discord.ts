@@ -1,6 +1,16 @@
 // Discord Webhook 客户端。最多每条消息 2000 字符，多嵌入(embed)走 embeds[]。
+//
+// 支持按比赛类型路由到不同 webhook：
+//   - DISCORD_WEBHOOK_URL          默认（联赛 / 欧冠 / 早报 / 周报）
+//   - DISCORD_WEBHOOK_URL_WC       世界杯专用频道
+// 缺失某个特殊 webhook 时回退到 DISCORD_WEBHOOK_URL。
 
-const WEBHOOK = process.env.DISCORD_WEBHOOK_URL;
+function pickWebhook(competitionCode?: string): string | undefined {
+  if (competitionCode === "WC") {
+    return process.env.DISCORD_WEBHOOK_URL_WC || process.env.DISCORD_WEBHOOK_URL;
+  }
+  return process.env.DISCORD_WEBHOOK_URL;
+}
 
 export interface DiscordEmbedField {
   name: string;
@@ -28,13 +38,22 @@ export interface DiscordMessage {
   embeds?: DiscordEmbed[];
 }
 
-export async function sendDiscord(msg: DiscordMessage): Promise<void> {
-  if (!WEBHOOK) {
+export interface SendDiscordOptions {
+  /** 比赛 competition code，用于路由到对应 webhook（如 WC 走世界杯频道） */
+  competitionCode?: string;
+}
+
+export async function sendDiscord(
+  msg: DiscordMessage,
+  opts: SendDiscordOptions = {},
+): Promise<void> {
+  const url = pickWebhook(opts.competitionCode);
+  if (!url) {
     throw new Error(
       "DISCORD_WEBHOOK_URL is missing. Set it in .env.local (or env var) and restart.",
     );
   }
-  const res = await fetch(WEBHOOK, {
+  const res = await fetch(url, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({

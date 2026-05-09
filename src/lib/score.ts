@@ -102,6 +102,9 @@ export function scoreMatch(
   score += posScore(homePos);
   score += posScore(awayPos);
 
+  // 世界杯没有"联赛排名"概念，不走筛选，所有比赛都视为入选
+  const isWorldCup = code === "WC";
+
   const inN = (p: number | null, n: number) => p != null && p <= n;
   const ruleBoth =
     inN(homePos, cfg.bothInTop) && inN(awayPos, cfg.bothInTop);
@@ -110,6 +113,10 @@ export function scoreMatch(
     (inN(homePos, cfg.superInTop) || inN(awayPos, cfg.superInTop));
   const meetsRank = ruleBoth || ruleSuper;
 
+  if (isWorldCup) {
+    score += 50;
+    reasons.push(`🏆 世界杯`);
+  }
   if (ruleBoth) {
     score += 30;
     reasons.push(`双方 Top ${cfg.bothInTop}`);
@@ -129,7 +136,8 @@ export function scoreMatch(
   // 联赛权重：欧冠 > 五大联赛
   if (code === "CL") score += 8;
 
-  const worthWatching = meetsRank || (cfg.includeDerbies && !!derby);
+  const worthWatching =
+    isWorldCup || meetsRank || (cfg.includeDerbies && !!derby);
 
   return {
     match,
