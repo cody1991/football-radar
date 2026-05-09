@@ -115,12 +115,26 @@ export function kickoffAlert(
   const { match, derby, reasons } = item;
   const a = arrangeMatch(item);
 
-  const leftLabel = `${displayTeamName(a.leftTeamName)}${
-    a.leftRank != null ? ` (#${a.leftRank})` : ""
-  }${a.leftIsHome ? " · 主" : " · 客"}`;
-  const rightLabel = `${displayTeamName(a.rightTeamName)}${
-    a.rightRank != null ? ` (#${a.rightRank})` : ""
-  }${a.leftIsHome ? " · 客" : " · 主"}`;
+  // kickoff alert 的视觉重心放在 thumbnail（右上大图），所以强队（leftRank 更小）
+  // 渲染到 thumbnail 一侧；author（左上小圆）留给弱队
+  // a.leftXxx 在数据语义上是"排名靠前"，这里反过来塞进 author：
+  const featuredName = a.leftTeamName;
+  const featuredRank = a.leftRank;
+  const featuredCrest = a.leftTeamCrest;
+  const featuredIsHome = a.leftIsHome;
+  const opponentName = a.rightTeamName;
+  const opponentRank = a.rightRank;
+  const opponentCrest = a.rightTeamCrest;
+  const opponentIsHome = !a.leftIsHome;
+
+  // author 行（小圆 icon + 文字）= 弱队
+  const authorLabel = `${displayTeamName(opponentName)}${
+    opponentRank != null ? ` (#${opponentRank})` : ""
+  }${opponentIsHome ? " · 主" : " · 客"}`;
+  // title 行 = 强队（含主/客）
+  const titleLabel = `v  ${displayTeamName(featuredName)}${
+    featuredRank != null ? ` (#${featuredRank})` : ""
+  }${featuredIsHome ? " · 主" : " · 客"}`;
 
   const tagBits: string[] = [];
   if (derby) tagBits.push(`🔥 **${derby.name}**`);
@@ -147,14 +161,14 @@ export function kickoffAlert(
     content: `⏰ **${minutesUntil} 分钟后开赛** · ${compTag(match.competition.code)}${seqBit}`,
     embeds: [
       {
-        // author = 左队（含 logo）；title = "v 右队 ..."；thumbnail = 右队 logo
-        author: a.leftTeamCrest
-          ? { name: leftLabel, icon_url: a.leftTeamCrest }
-          : { name: leftLabel },
-        title: `v  ${rightLabel}`,
+        // author = 弱队（小圆 icon）；title 主体 = 强队；thumbnail = 强队 logo（大图，视觉重心）
+        author: opponentCrest
+          ? { name: authorLabel, icon_url: opponentCrest }
+          : { name: authorLabel },
+        title: titleLabel,
         description: tagBits.join("  "),
         color: pickColor(item),
-        thumbnail: a.rightTeamCrest ? { url: a.rightTeamCrest } : undefined,
+        thumbnail: featuredCrest ? { url: featuredCrest } : undefined,
         fields,
         footer: { text: `时间 ${tzShort()} (${TZ})` },
       },
