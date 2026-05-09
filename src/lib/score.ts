@@ -56,19 +56,18 @@ export function arrangeMatch(item: ScoredMatch): ArrangedMatch {
 }
 
 export interface ScoringConfig {
-  topN: number;
-  /**
-   * "either"  : 任一方在 Top N 即算入选
-   * "both"    : 双方都需要在 Top N
-   */
-  topMode: "either" | "both";
+  /** 双方都至少要在这个排名内（"地板"，宽松条件，必须满足） */
+  bothInTop: number;
+  /** 至少一方要在这个排名内（"天花板"，严格条件）。设为 null 关闭这层过滤 */
+  eitherInTop: number | null;
+  /** 是否把传统德比当 fallback 入选条件（无视排名）。false 时德比也必须满足上述排名条件 */
   includeDerbies: boolean;
 }
 
 export const DEFAULT_CONFIG: ScoringConfig = {
-  topN: 8,
-  topMode: "either",
-  includeDerbies: true,
+  bothInTop: 8,
+  eitherInTop: 6,
+  includeDerbies: false,
 };
 
 /**
@@ -97,36 +96,52 @@ export function scoreMatch(
   const reasons: string[] = [];
   let score = 0;
 
-  // 排名分：越靠前分越高
+  // 排名分：越靠前分越高（仅用于 score 排序）
   const posScore = (p: number | null) =>
     p == null ? 0 : Math.max(0, 21 - p); // 第 1 名得 20，第 20 名得 1
   score += posScore(homePos);
   score += posScore(awayPos);
 
-  const homeInTop = homePos != null && homePos <= cfg.topN;
-  const awayInTop = awayPos != null && awayPos <= cfg.topN;
+  const inN = (p: number | null, n: number) => p != null && p <= n;
+  const homeInBoth = inN(homePos, cfg.bothInTop);
+  const awayInBoth = inN(awayPos, cfg.bothInTop);
+  const eitherInTop =
+    cfg.eitherInTop != null &&
+    (inN(homePos, cfg.eitherInTop) || inN(awayPos, cfg.eitherInTop));
+  const bothInEither =
+    cfg.eitherInTop != null &&
+    inN(homePos, cfg.eitherInTop) &&
+    inN(awayPos, cfg.eitherInTop);
 
-  // 强强对话加成
-  if (homeInTop && awayInTop) {
-    score += 30;
-    reasons.push(`双方都在前 ${cfg.topN}`);
-  } else if (homeInTop || awayInTop) {
-    score += 10;
-    reasons.push(`一方在前 ${cfg.topN}`);
+  const meetsRank =
+    homeInBoth && awayInBoth && (cfg.eitherInTop == null || eitherInTop);
+
+  if (meetsRank) {
+    if (bothInEither) {
+      score += 40;
+      reasons.push(`双方 Top ${cfg.eitherInTop}`);
+    } else if (cfg.eitherInTop != null) {
+      score += 25;
+      reasons.push(
+        `双方 Top ${cfg.bothInTop}，一方 Top ${cfg.eitherInTop}`,
+      );
+    } else {
+      score += 25;
+      reasons.push(`双方 Top ${cfg.bothInTop}`);
+    }
   }
 
-  // 德比
+  // 德比仅作为 fallback 入选（当 includeDerbies=true 时无视排名）
   if (derby && cfg.includeDerbies) {
     score += 25;
-    reasons.push(`德比：${derby.name}`);
+    if (!meetsRank) reasons.push(`德比：${derby.name}`);
+    else reasons.push(`🔥 ${derby.name}`);
   }
 
   // 联赛权重：欧冠 > 五大联赛
   if (code === "CL") score += 8;
 
-  const meetsTop =
-    cfg.topMode === "both" ? homeInTop && awayInTop : homeInTop || awayInTop;
-  const worthWatching = meetsTop || (cfg.includeDerbies && !!derby);
+  const worthWatching = meetsRank || (cfg.includeDerbies && !!derby);
 
   return {
     match,
