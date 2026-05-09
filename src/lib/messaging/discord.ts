@@ -36,6 +36,16 @@ export interface DiscordMessage {
   avatar_url?: string;
   content?: string;
   embeds?: DiscordEmbed[];
+  /**
+   * 控制 @everyone / @here / role / user 提醒是否真的触发铃。
+   * 默认 Discord 会解析 content 中的 @here / @everyone，但有时被频道设置或代理拦截，
+   * 显式 parse 后行为更稳。
+   */
+  allowed_mentions?: {
+    parse?: Array<"roles" | "users" | "everyone">;
+    roles?: string[];
+    users?: string[];
+  };
 }
 
 export interface SendDiscordOptions {

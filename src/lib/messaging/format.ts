@@ -176,6 +176,28 @@ export function kickoffAlert(
   };
 }
 
+// ------------------ Kickoff imminent ping (开赛前 5min 简短提醒) ------------------
+
+/**
+ * 简短一行 ping：用于 kickoff alert 之外的"临开赛"提醒。
+ * 跟完整 alert 不同：不带 embed，只一句 content + @here，不会再贴一遍 logo / 含金量等。
+ */
+export function imminentPing(
+  item: ScoredMatch,
+  minutesUntil: number,
+): DiscordMessage {
+  const a = arrangeMatch(item);
+  const left = displayTeamName(a.leftTeamName);
+  const right = displayTeamName(a.rightTeamName);
+  return {
+    content: `@here 🚨 **${minutesUntil} 分钟后开赛** · ${compTag(
+      item.match.competition.code,
+    )} · ${left} v ${right}`,
+    // Discord 默认会让 @here 解析成提及；显式声明一下确保生效
+    allowed_mentions: { parse: ["everyone"] },
+  };
+}
+
 // ------------------ Weekly preview ------------------
 
 interface WeeklyGroup {

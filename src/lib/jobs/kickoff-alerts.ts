@@ -6,7 +6,7 @@ import {
   matchRowToFd,
 } from "../db";
 import { sendDiscord } from "../messaging/discord";
-import { kickoffAlert } from "../messaging/format";
+import { imminentPing, kickoffAlert } from "../messaging/format";
 import { DEFAULT_CONFIG, scoreMatch, type ScoringConfig } from "../score";
 
 const TZ = process.env.TZ || "Europe/Berlin";
@@ -69,42 +69,72 @@ export async function runKickoffAlerts(opts: {
     .map((r) => scoreMatch(matchRowToFd(r), lookup, cfg))
     .filter((i) => i.worthWatching);
 
+  // 临开赛 ping 阈值：≤ 这么多分钟就额外发一条 @here 简短提醒
+  const IMMINENT_MIN = 5;
+
   let pushed = 0;
   let skipped = 0;
   for (const it of items) {
     const k = dateKey(it.match.utcDate);
-    if (!dryRun && alreadyPushed("kickoff", it.match.id, k)) {
-      skipped++;
-      continue;
-    }
+    const competitionCode = it.match.competition.code;
     const minutesUntil = Math.max(
       1,
       Math.round((new Date(it.match.utcDate).getTime() - now) / 60000),
     );
-    try {
-      // 「第 N/M 场」：算同一本地日内全部 worth 比赛（仅未开始的）
-      const dayWindow = localDayUtcWindow(it.match.utcDate);
-      const dayRows = getMatchesBetween(dayWindow.from, dayWindow.to);
-      const dayItems = dayRows
-        .filter((r) => r.status === "SCHEDULED" || r.status === "TIMED")
-        .map((r) => scoreMatch(matchRowToFd(r), lookup, cfg))
-        .filter((i) => i.worthWatching)
-        .sort((a, b) => a.match.utcDate.localeCompare(b.match.utcDate));
-      const myIndex = dayItems.findIndex((x) => x.match.id === it.match.id);
-      const sequence =
-        myIndex >= 0
-          ? { index: myIndex + 1, total: dayItems.length }
-          : undefined;
 
-      await sendDiscord(
-        kickoffAlert(it, minutesUntil, { sequence }),
-        { competitionCode: it.match.competition.code },
-      );
-      if (!dryRun) markPushed("kickoff", it.match.id, k);
-      pushed++;
-    } catch (e) {
-      console.warn(`[kickoff] push failed for match ${it.match.id}:`, e);
+    // 「第 N/M 场」：算同一本地日内全部 worth 比赛（仅未开始的）
+    const dayWindow = localDayUtcWindow(it.match.utcDate);
+    const dayRows = getMatchesBetween(dayWindow.from, dayWindow.to);
+    const dayItems = dayRows
+      .filter((r) => r.status === "SCHEDULED" || r.status === "TIMED")
+      .map((r) => scoreMatch(matchRowToFd(r), lookup, cfg))
+      .filter((i) => i.worthWatching)
+      .sort((a, b) => a.match.utcDate.localeCompare(b.match.utcDate));
+    const myIndex = dayItems.findIndex((x) => x.match.id === it.match.id);
+    const sequence =
+      myIndex >= 0
+        ? { index: myIndex + 1, total: dayItems.length }
+        : undefined;
+
+    let didSomething = false;
+
+    // ── Phase 1: 完整 alert（开赛前 0–60min 任意时刻首次扫到）──
+    const alertPushed = !dryRun && alreadyPushed("kickoff", it.match.id, k);
+    if (!alertPushed) {
+      try {
+        await sendDiscord(
+          kickoffAlert(it, minutesUntil, { sequence }),
+          { competitionCode },
+        );
+        if (!dryRun) markPushed("kickoff", it.match.id, k);
+        didSomething = true;
+      } catch (e) {
+        console.warn(`[kickoff] push failed for match ${it.match.id}:`, e);
+      }
     }
+
+    // ── Phase 2: 临开赛 ping（开赛前 ≤ 5min，独立去重）──
+    if (minutesUntil <= IMMINENT_MIN) {
+      const pingPushed =
+        !dryRun && alreadyPushed("kickoff-imminent", it.match.id, k);
+      if (!pingPushed) {
+        try {
+          await sendDiscord(imminentPing(it, minutesUntil), {
+            competitionCode,
+          });
+          if (!dryRun) markPushed("kickoff-imminent", it.match.id, k);
+          didSomething = true;
+        } catch (e) {
+          console.warn(
+            `[kickoff-imminent] push failed for match ${it.match.id}:`,
+            e,
+          );
+        }
+      }
+    }
+
+    if (didSomething) pushed++;
+    else skipped++;
   }
 
   return { scanned: items.length, pushed, skipped, dryRun };
