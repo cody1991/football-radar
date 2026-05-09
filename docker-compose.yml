@@ -1,0 +1,43 @@
+# 一组镜像两个容器：
+#   - web        : Next.js 看板（http://<host>:3000）
+#   - scheduler  : node-cron 常驻进程，定时刷新 + 推 Discord
+# 两个容器共享 ./data 目录，里面是 SQLite 文件。
+
+services:
+  web:
+    build: .
+    image: football-radar:latest
+    container_name: football-radar-web
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    env_file:
+      - .env.local
+    environment:
+      TZ: ${TZ:-Europe/Berlin}
+      NODE_ENV: production
+      FOOTBALL_RADAR_DB: /app/data/football-radar.db
+    volumes:
+      - ./data:/app/data
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O-", "http://localhost:3000/api/matches"]
+      interval: 60s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+
+  scheduler:
+    image: football-radar:latest
+    container_name: football-radar-scheduler
+    restart: unless-stopped
+    depends_on:
+      - web
+    env_file:
+      - .env.local
+    environment:
+      TZ: ${TZ:-Europe/Berlin}
+      NODE_ENV: production
+      FOOTBALL_RADAR_DB: /app/data/football-radar.db
+    volumes:
+      - ./data:/app/data
+    command: ["npm", "run", "scheduler"]
