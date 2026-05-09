@@ -65,7 +65,7 @@ export async function GET(req: Request) {
     const rankByTeam = getRankByTeamId();
     const scored = rows
       .map((r) => scoreMatch(matchRowToFd(r), rankByTeam, cfg))
-      .sort((a, b) => b.score - a.score);
+      .sort((a, b) => a.match.utcDate.localeCompare(b.match.utcDate));
 
     const lastRefresh = getMeta("last_refresh_at");
 

@@ -10,6 +10,16 @@ import {
 
 const TZ = process.env.TZ || "Europe/Berlin";
 
+/** 给当前 TZ 取一个简短偏移标签，例如 "UTC+2" */
+function tzShort(): string {
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone: TZ,
+    timeZoneName: "shortOffset",
+  }).formatToParts(new Date());
+  const off = parts.find((p) => p.type === "timeZoneName")?.value || "";
+  return off || TZ;
+}
+
 function fmtTime(iso: string): string {
   return new Intl.DateTimeFormat("zh-CN", {
     weekday: "short",
@@ -82,7 +92,7 @@ export function morningDigest(date: string, items: ScoredMatch[]): DiscordMessag
     description: lines.slice(0, 4000),
     color: COLOR.accent,
     footer: {
-      text: `共 ${worth.length} 场值得看（按含金量排序）· 数据来源 football-data.org`,
+      text: `共 ${worth.length} 场值得看 · 时间 ${tzShort()} (${TZ}) · 数据来源 football-data.org`,
     },
   };
   return { embeds: [embed] };
@@ -163,7 +173,7 @@ export function weeklyPreview(weekLabel: string, groups: WeeklyGroup[]): Discord
         title: `本周末重头戏 · ${weekLabel}`,
         color: COLOR.accent,
         fields,
-        footer: { text: "Football Radar · 周末预告" },
+        footer: { text: `周末预告 · 时间 ${tzShort()} (${TZ})` },
       },
     ],
   };

@@ -54,9 +54,10 @@ export async function runMorningDigest(opts: {
   const { from, to } = todayUtcWindow();
   const rows = getMatchesBetween(from, to);
   const rankByTeam = getRankByTeamId();
+  // 早报按时间升序，符合"今日时间表"心智模型
   const items = rows
     .map((r) => scoreMatch(matchRowToFd(r), rankByTeam, cfg))
-    .sort((a, b) => b.score - a.score);
+    .sort((a, b) => a.match.utcDate.localeCompare(b.match.utcDate));
 
   const worth = items.filter((i) => i.worthWatching).length;
 

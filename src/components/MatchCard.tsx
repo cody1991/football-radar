@@ -22,12 +22,19 @@ function rankTextColor(pos: number | null): string {
   return "text-muted";
 }
 
-function RankSuffix({ pos }: { pos: number | null }) {
+function RankSuffix({
+  pos,
+  side = "left",
+}: {
+  pos: number | null;
+  side?: "left" | "right";
+}) {
   if (pos == null) return null;
   return (
     <span
       className={cn(
-        "ml-1 font-mono tabular-nums text-xs",
+        "font-mono tabular-nums text-xs",
+        side === "left" ? "ml-1" : "mr-1",
         rankTextColor(pos),
       )}
       title={`联赛排名 第 ${pos} 位`}
@@ -128,7 +135,7 @@ export function MatchCard({ item }: { item: ScoredMatch }) {
         </div>
         <div className="flex items-center gap-2 justify-self-end min-w-0">
           <div className="flex items-baseline gap-1 truncate justify-end">
-            <RankSuffix pos={rank.away} />
+            <RankSuffix pos={rank.away} side="right" />
             <span className="truncate font-medium" title={match.awayTeam.name}>
               {displayTeamName(match.awayTeam.name)}
             </span>

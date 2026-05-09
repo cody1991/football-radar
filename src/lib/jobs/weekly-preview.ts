@@ -85,7 +85,7 @@ export async function runWeeklyPreview(opts: {
     const items = rows
       .map((r) => scoreMatch(matchRowToFd(r), rankByTeam, cfg))
       .filter((i) => i.worthWatching)
-      .sort((a, b) => b.score - a.score);
+      .sort((a, b) => a.match.utcDate.localeCompare(b.match.utcDate));
 
     totalWorth += items.length;
     groups.push({ dateLabel: localLabel(dayStart), items });
