@@ -4,7 +4,7 @@ import { refreshData } from "../src/lib/jobs/refresh-data";
 import { runWeeklyPreview } from "../src/lib/jobs/weekly-preview";
 
 const HELP = `
-Usage: npm run push:now -- <command>
+Usage: npm run push:now -- <command> [flags]
 
 Commands:
   refresh             立即拉一次远程数据写入 SQLite
@@ -15,6 +15,10 @@ Commands:
 
 Flags:
   --force             忽略 push_log 去重（morning / weekly / kickoff 都支持）
+  --dry-run           仅 kickoff：不读不写 push_log，每次都推一遍。
+                      用于本地测试消息样式，绝不污染线上去重状态。
+  --lookahead=<min>   仅 kickoff：覆盖默认 60min lookahead，比如 --lookahead=300
+                      可以把今晚后续几场都推一遍看效果。
 `;
 
 async function main() {
@@ -37,13 +41,20 @@ async function main() {
       break;
     }
     case "kickoff": {
-      if (force) {
-        // 临时清掉 kickoff push_log，让本次扫描全部重推
+      const dryRun = argv.includes("--dry-run");
+      const lookaheadArg = argv.find((a) => a.startsWith("--lookahead="));
+      const lookaheadMin = lookaheadArg
+        ? Number(lookaheadArg.split("=")[1])
+        : 60;
+      if (force && !dryRun) {
+        // 临时清掉 kickoff push_log，让本次扫描全部重推（dry-run 自己就跳过 push_log，无需清）
         const { db } = await import("../src/lib/db");
-        const n = db().prepare(`DELETE FROM push_log WHERE job = 'kickoff'`).run().changes;
+        const n = db()
+          .prepare(`DELETE FROM push_log WHERE job = 'kickoff'`)
+          .run().changes;
         console.log(`(--force) cleared ${n} kickoff push_log entries`);
       }
-      const r = await runKickoffAlerts({ lookaheadMin: 60 });
+      const r = await runKickoffAlerts({ lookaheadMin, dryRun });
       console.log("kickoff:", r);
       break;
     }

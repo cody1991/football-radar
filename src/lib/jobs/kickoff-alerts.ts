@@ -35,6 +35,7 @@ export interface KickoffAlertResult {
   scanned: number;
   pushed: number;
   skipped: number;
+  dryRun: boolean;
 }
 
 /**
@@ -42,13 +43,18 @@ export interface KickoffAlertResult {
  * 用 push_log 去重（job=kickoff, match_id=match.id, date=本地日期）。
  *
  * 推荐 scheduler 每 10 分钟跑一次，lookaheadMin 设 60。
+ *
+ * `dryRun=true` 时：跳过 push_log 读写，每次都把所有命中比赛推一遍 Discord，
+ *                 完全不影响线上去重状态。用于本地测试消息样式。
  */
 export async function runKickoffAlerts(opts: {
   lookaheadMin?: number;
   cfg?: ScoringConfig;
+  dryRun?: boolean;
 } = {}): Promise<KickoffAlertResult> {
   const lookahead = opts.lookaheadMin ?? 30;
   const cfg = opts.cfg ?? DEFAULT_CONFIG;
+  const dryRun = opts.dryRun ?? false;
   const now = Date.now();
   const fromIso = new Date(now).toISOString();
   const toIso = new Date(now + lookahead * 60 * 1000).toISOString();
@@ -67,7 +73,7 @@ export async function runKickoffAlerts(opts: {
   let skipped = 0;
   for (const it of items) {
     const k = dateKey(it.match.utcDate);
-    if (alreadyPushed("kickoff", it.match.id, k)) {
+    if (!dryRun && alreadyPushed("kickoff", it.match.id, k)) {
       skipped++;
       continue;
     }
@@ -91,12 +97,12 @@ export async function runKickoffAlerts(opts: {
           : undefined;
 
       await sendDiscord(kickoffAlert(it, minutesUntil, { sequence }));
-      markPushed("kickoff", it.match.id, k);
+      if (!dryRun) markPushed("kickoff", it.match.id, k);
       pushed++;
     } catch (e) {
       console.warn(`[kickoff] push failed for match ${it.match.id}:`, e);
     }
   }
 
-  return { scanned: items.length, pushed, skipped };
+  return { scanned: items.length, pushed, skipped, dryRun };
 }
