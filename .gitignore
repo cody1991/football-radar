@@ -4,6 +4,9 @@ node_modules
 # misc
 .DS_Store
 
+# next.js artifacts (项目已移除 next，但有遗留 .next 目录的话也忽略)
+.next/
+
 # debug
 npm-debug.log*
 

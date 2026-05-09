@@ -14,7 +14,7 @@ Commands:
   all                 refresh -> morning(force) -> weekly(force)（用于 Discord webhook 自检）
 
 Flags:
-  --force             忽略 push_log 去重（仅 morning/weekly 支持）
+  --force             忽略 push_log 去重（morning / weekly / kickoff 都支持）
 `;
 
 async function main() {
