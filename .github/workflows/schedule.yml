@@ -51,6 +51,7 @@ jobs:
           FOOTBALL_DATA_TOKEN: ${{ secrets.FOOTBALL_DATA_TOKEN }}
           DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
           DISCORD_WEBHOOK_URL_WC: ${{ secrets.DISCORD_WEBHOOK_URL_WC }}
+          DISCORD_WEBHOOK_URL_EC: ${{ secrets.DISCORD_WEBHOOK_URL_EC }}
           TZ: ${{ vars.TZ || 'Europe/Amsterdam' }}
         run: npm run schedule:once
 

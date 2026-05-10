@@ -4,9 +4,14 @@ export type CompetitionCode =
   | "SA"
   | "BL1"
   | "FL1"
+  | "ELC" // Championship 英冠
+  | "DED" // Eredivisie 荷甲
+  | "PPL" // Primeira Liga 葡超
+  | "BSA" // Brasileirão 巴甲
   | "CL"
   | "EL"
-  | "WC";
+  | "WC"
+  | "EC";
 
 export interface CompetitionMeta {
   code: CompetitionCode;
@@ -53,6 +58,34 @@ export const COMPETITIONS: Record<CompetitionCode, CompetitionMeta> = {
     emoji: "🇫🇷",
     available: true,
   },
+  ELC: {
+    code: "ELC",
+    name: "Championship",
+    shortName: "英冠",
+    emoji: "🏴󠁧󠁢󠁥󠁮󠁧󠁿",
+    available: true,
+  },
+  DED: {
+    code: "DED",
+    name: "Eredivisie",
+    shortName: "荷甲",
+    emoji: "🇳🇱",
+    available: true,
+  },
+  PPL: {
+    code: "PPL",
+    name: "Primeira Liga",
+    shortName: "葡超",
+    emoji: "🇵🇹",
+    available: true,
+  },
+  BSA: {
+    code: "BSA",
+    name: "Campeonato Brasileiro",
+    shortName: "巴甲",
+    emoji: "🇧🇷",
+    available: true,
+  },
   CL: {
     code: "CL",
     name: "UEFA Champions League",
@@ -74,7 +107,15 @@ export const COMPETITIONS: Record<CompetitionCode, CompetitionMeta> = {
     shortName: "世界杯",
     emoji: "🏆",
     available: true,
-    note: "无联赛排名，scoreMatch 对 WC 走 always-推 路线，单独 webhook 频道",
+    note: "无联赛排名，scoreMatch 走 always-推 路线，DISCORD_WEBHOOK_URL_WC 频道",
+  },
+  EC: {
+    code: "EC",
+    name: "European Championship",
+    shortName: "欧洲杯",
+    emoji: "🇪🇺",
+    available: true,
+    note: "国家队赛事，无联赛排名，always-推 + DISCORD_WEBHOOK_URL_EC 频道。Euro 2028 才有数据",
   },
 };
 

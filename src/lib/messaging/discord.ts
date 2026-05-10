@@ -3,11 +3,15 @@
 // 支持按比赛类型路由到不同 webhook：
 //   - DISCORD_WEBHOOK_URL          默认（联赛 / 欧冠 / 早报 / 周报）
 //   - DISCORD_WEBHOOK_URL_WC       世界杯专用频道
+//   - DISCORD_WEBHOOK_URL_EC       欧洲杯专用频道
 // 缺失某个特殊 webhook 时回退到 DISCORD_WEBHOOK_URL。
 
 function pickWebhook(competitionCode?: string): string | undefined {
   if (competitionCode === "WC") {
     return process.env.DISCORD_WEBHOOK_URL_WC || process.env.DISCORD_WEBHOOK_URL;
+  }
+  if (competitionCode === "EC") {
+    return process.env.DISCORD_WEBHOOK_URL_EC || process.env.DISCORD_WEBHOOK_URL;
   }
   return process.env.DISCORD_WEBHOOK_URL;
 }
@@ -49,7 +53,7 @@ export interface DiscordMessage {
 }
 
 export interface SendDiscordOptions {
-  /** 比赛 competition code，用于路由到对应 webhook（如 WC 走世界杯频道） */
+  /** 比赛 competition code，用于路由到对应 webhook（WC → 世界杯频道，EC → 欧洲杯频道） */
   competitionCode?: string;
 }
 
