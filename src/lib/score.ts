@@ -102,8 +102,10 @@ export function scoreMatch(
   score += posScore(homePos);
   score += posScore(awayPos);
 
-  // 国家队大赛（世界杯 / 欧洲杯）没有"联赛排名"概念 → always 推
-  const isInternational = code === "WC" || code === "EC";
+  // 杯赛 / 大赛：没有"联赛排名"概念 → always 推
+  //   WC / EC = 国家队大赛
+  //   CLI    = 南美解放者杯（俱乐部杯赛，但参赛队来自多国联赛，无统一排名）
+  const isAlwaysWatch = code === "WC" || code === "EC" || code === "CLI";
 
   const inN = (p: number | null, n: number) => p != null && p <= n;
   const ruleBoth =
@@ -113,9 +115,11 @@ export function scoreMatch(
     (inN(homePos, cfg.superInTop) || inN(awayPos, cfg.superInTop));
   const meetsRank = ruleBoth || ruleSuper;
 
-  if (isInternational) {
+  if (isAlwaysWatch) {
     score += 50;
-    reasons.push(code === "WC" ? `🏆 世界杯` : `🇪🇺 欧洲杯`);
+    if (code === "WC") reasons.push(`🏆 世界杯`);
+    else if (code === "EC") reasons.push(`🇪🇺 欧洲杯`);
+    else reasons.push(`🌎 解放者杯`);
   }
   if (ruleBoth) {
     score += 30;
@@ -137,7 +141,7 @@ export function scoreMatch(
   if (code === "CL") score += 8;
 
   const worthWatching =
-    isInternational || meetsRank || (cfg.includeDerbies && !!derby);
+    isAlwaysWatch || meetsRank || (cfg.includeDerbies && !!derby);
 
   return {
     match,

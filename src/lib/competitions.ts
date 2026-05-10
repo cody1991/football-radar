@@ -10,6 +10,7 @@ export type CompetitionCode =
   | "BSA" // Brasileirão 巴甲
   | "CL"
   | "EL"
+  | "CLI" // Copa Libertadores 南美解放者杯
   | "WC"
   | "EC";
 
@@ -100,6 +101,14 @@ export const COMPETITIONS: Record<CompetitionCode, CompetitionMeta> = {
     emoji: "🌟",
     available: false,
     note: "football-data.org 免费档不含欧联，升级 Tier One 后开放",
+  },
+  CLI: {
+    code: "CLI",
+    name: "Copa Libertadores",
+    shortName: "解放者杯",
+    emoji: "🌎",
+    available: true,
+    note: "南美最高俱乐部赛事，无联赛排名，always-推 + DISCORD_WEBHOOK_URL_CLI 频道。比赛时间多在欧洲深夜",
   },
   WC: {
     code: "WC",

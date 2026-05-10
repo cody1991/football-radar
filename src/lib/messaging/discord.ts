@@ -4,6 +4,7 @@
 //   - DISCORD_WEBHOOK_URL          默认（联赛 / 欧冠 / 早报 / 周报）
 //   - DISCORD_WEBHOOK_URL_WC       世界杯专用频道
 //   - DISCORD_WEBHOOK_URL_EC       欧洲杯专用频道
+//   - DISCORD_WEBHOOK_URL_CLI      南美解放者杯专用频道（多在欧洲深夜，建议频道开静音）
 // 缺失某个特殊 webhook 时回退到 DISCORD_WEBHOOK_URL。
 
 function pickWebhook(competitionCode?: string): string | undefined {
@@ -12,6 +13,9 @@ function pickWebhook(competitionCode?: string): string | undefined {
   }
   if (competitionCode === "EC") {
     return process.env.DISCORD_WEBHOOK_URL_EC || process.env.DISCORD_WEBHOOK_URL;
+  }
+  if (competitionCode === "CLI") {
+    return process.env.DISCORD_WEBHOOK_URL_CLI || process.env.DISCORD_WEBHOOK_URL;
   }
   return process.env.DISCORD_WEBHOOK_URL;
 }
