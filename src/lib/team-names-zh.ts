@@ -125,6 +125,7 @@ const SUBSTR: Array<[string, string]> = [
   ["Lille", "里尔"],
   ["Olympique Lyonnais", "里昂"],
   ["Lyon", "里昂"],
+  ["Rennais", "雷恩"],
   ["Rennes", "雷恩"],
   ["Nice", "尼斯"],
   ["Lens", "朗斯"],

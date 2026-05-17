@@ -158,7 +158,7 @@ export function kickoffAlert(
     : "";
 
   return {
-    content: `⏰ **${minutesUntil} 分钟后开赛** · ${compTag(match.competition.code)}${seqBit}`,
+    content: `⏰ **${fmtTimeShort(match.utcDate)} 开赛** · ${minutesUntil} 分钟后 · ${compTag(match.competition.code)}${seqBit}`,
     embeds: [
       {
         // author = 弱队（小圆 icon）；title 主体 = 强队；thumbnail = 强队 logo（大图，视觉重心）
@@ -179,20 +179,33 @@ export function kickoffAlert(
 // ------------------ Kickoff imminent ping (开赛前 5min 简短提醒) ------------------
 
 /**
- * 简短一行 ping：用于 kickoff alert 之外的"临开赛"提醒。
- * 跟完整 alert 不同：不带 embed，只一句 content + @here，不会再贴一遍 logo / 含金量等。
+ * 紧凑两行 ping：用于 kickoff alert 之外的"临开赛"提醒。
+ * 跟完整 alert 不同：不带 embed，只用 content + @here，不再贴 logo / fields，
+ * 但保留排名 / 含金量 / 德比这种「值得看」的判断依据，避免变成无信息的纯吆喝。
  */
 export function imminentPing(
   item: ScoredMatch,
   minutesUntil: number,
 ): DiscordMessage {
+  const { match, derby } = item;
   const a = arrangeMatch(item);
-  const left = displayTeamName(a.leftTeamName);
-  const right = displayTeamName(a.rightTeamName);
+  const left = teamWithRank(a.leftTeamName, a.leftRank);
+  const right = teamWithRank(a.rightTeamName, a.rightRank);
+
+  // 第一行：警报 + 联赛 + 开赛时间 + 含金量（一眼能扫到判断要不要点开）
+  const headBits: string[] = [
+    `@here 🚨 **${minutesUntil} 分钟后开赛**`,
+    compTag(match.competition.code),
+    fmtTimeShort(match.utcDate),
+    `含金量 ${Math.round(item.score)}`,
+  ];
+  // 第二行：对阵 + 入选原因（双方 Top 8 / 豪门坐镇 / 德比 等）
+  const tagBits: string[] = [`${left} v ${right}`];
+  if (derby) tagBits.push(`🔥 ${derby.name}`);
+  tagBits.push(...item.reasons.filter((r) => !derby || !r.includes(derby.name)));
+
   return {
-    content: `@here 🚨 **${minutesUntil} 分钟后开赛** · ${compTag(
-      item.match.competition.code,
-    )} · ${left} v ${right}`,
+    content: `${headBits.join(" · ")}\n${tagBits.join(" · ")}`,
     // Discord 默认会让 @here 解析成提及；显式声明一下确保生效
     allowed_mentions: { parse: ["everyone"] },
   };
