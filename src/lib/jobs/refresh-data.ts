@@ -90,8 +90,8 @@ export async function refreshData(
       const resp = await getStandings(c);
       const flatRank = buildTeamRank(resp);
       // 取 TOTAL 表的原始行
-      const totalTable = resp.standings.find((t) => t.type === "TOTAL");
-      if (totalTable) {
+      const totalTables = resp.standings.filter((t) => t.type === "TOTAL");
+      for (const totalTable of totalTables) {
         const rows = rankRowsFor(c, totalTable.table, start);
         upsertStandings(rows);
         standingsCount += rows.length;
